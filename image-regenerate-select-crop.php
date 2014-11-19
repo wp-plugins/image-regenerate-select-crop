@@ -86,6 +86,7 @@ class SIRSC_Image_Regenerate_Select_Crop
 			add_action( 'wp_ajax_sirsc_show_actions_result', array( $this, 'show_actions_result' ) );
 			add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
 			add_action( 'admin_menu', array( $this, 'admin_menu' ) );
+			register_deactivation_hook( __FILE__, array( $this, 'deactivate_plugin' ) );
 		}
 
 		/** This is global, as the image sizes can be also registerd in the themes or other plugins */
@@ -98,6 +99,22 @@ class SIRSC_Image_Regenerate_Select_Crop
 				add_filter( 'image_downsize', array( $this, 'image_downsize_placeholder_force_global' ), 10, 3 );
 			} elseif ( ! empty( $this->settings['placeholders']['only_missing'] ) ) {
 				add_filter( 'image_downsize', array( $this, 'image_downsize_placeholder_only_missing' ), 10, 3 );
+			}
+		}
+	}
+	
+	/**
+	 * SIRSC_Image_Regenerate_Select_Crop::deactivate_plugin() The actions to be executed when the plugin is deactivated
+	 */
+	function deactivate_plugin() {
+		global $wpdb;
+		$tmpQuery = $wpdb->prepare( "SELECT option_name FROM " . $wpdb->options . " WHERE option_name like %s",
+			'sirsc_settings%'
+		);
+		$rows = $wpdb->get_results( $tmpQuery, ARRAY_A );
+		if ( ! empty( $rows ) && is_array( $rows ) ) {
+			foreach ( $rows as $v ) {
+				delete_option( $v['option_name'] );
 			}
 		}
 	}
