@@ -1,7 +1,7 @@
 <?php
 /*
 Plugin Name: Image Regenerate & Select Crop
-Description: This plugin allows you to regenerate and crop uploaded images, provides details about all the image sizes registered in the application and details about the status of each image sizes for the images.
+Description: Regenerate and crop images, details about all image sizes registered, status details for all the images, clean up and placeholders.
 Author: Iulia Cazan
 Version: 1.0.0
 Author URI: https://profiles.wordpress.org/iulia-cazan
