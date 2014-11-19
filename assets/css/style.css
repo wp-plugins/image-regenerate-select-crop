@@ -1,0 +1,266 @@
+.sirsc_clearAll {
+    clear: both !important;
+    display: block !important;
+    height: 1px;
+    overflow: hidden;
+}
+
+a {
+    cursor: pointer;
+}
+
+.textright {
+    text-align: right !important;
+}
+
+.floatright {
+    float: right !important;
+}
+
+.textcenter {
+    text-align: center !important;
+}
+
+.vtopAlign {
+    vertical-align: top !important;
+}
+
+#main_settings_block {
+    width: 98% !important;
+}
+
+.sirsc_info_box_wrap {
+    position: relative;
+}
+
+.sirsc_info_box {
+    position: absolute;
+    background-color: #EEE;
+    padding: 10px;
+    border: 2px solid #555;
+    border-radius: 15px;
+    -moz-border-radius: 15px;
+    -webkit-border-radius: 15px;
+    -webkit-box-shadow: 10px 10px 37px -4px rgba(0, 0, 0, 0.75);
+    -moz-box-shadow: 10px 10px 37px -4px rgba(0, 0, 0, 0.75);
+    box-shadow: 10px 10px 37px -4px rgba(0, 0, 0, 0.75);
+    display: none;
+    max-width: 90%;
+    width: 90%;
+}
+
+._sirsc_ignored td {
+    font-style: italic !important;
+    color: #999 !important;
+    border-top: 1px solid #DDD;
+    background-color: transparent !important;
+}
+
+._sirsc_force_original td {
+    background-color: #DDD;
+    border-top: 1px solid #DDD;
+    color: #00F !important;
+}
+
+._sirsc_included td {
+    background-color: #FFF;
+    border-top: 1px solid #DDD;
+    color: #000;
+}
+
+.sirsc_image-size-selection-box {
+    background-color: #FFF;
+    padding: 10px;
+    padding-top: 0px;
+    border: 2px solid #555;
+    max-width: 450px;
+    min-width: 320px;
+    width: 60%;
+    border-radius: 15px;
+    -moz-border-radius: 15px;
+    -webkit-border-radius: 15px;
+    -webkit-box-shadow: 10px 10px 37px -4px rgba(0, 0, 0, 0.75);
+    -moz-box-shadow: 10px 10px 37px -4px rgba(0, 0, 0, 0.75);
+    box-shadow: 10px 10px 37px -4px rgba(0, 0, 0, 0.75);
+    position: fixed;
+    z-Index: 88888;
+}
+
+.sirsc_spinner_update {
+    position: absolute;
+}
+
+.sirsc_button-regenerate {
+    position: relative;
+    text-align: left;
+    top: 1px;
+}
+
+.sirsc_button-regenerate .dashicons:hover {
+    color: #1C94C4;
+    cursor: pointer;
+}
+
+.sirsc_button-regenerate .spinner {
+    display: inline-block;
+    height: 24px;
+    margin-right: -30px;
+    margin-top: 5px;
+    visibility: visible;
+    width: 24px;
+}
+
+.sirsc_button-regenerate .spinner.off {
+    visibility: hidden;
+}
+
+.sirsc_button-regenerate .result {
+    height: 30px;
+    position: absolute;
+    right: 10px;
+    top: 0px;
+    width: 30px;
+}
+
+.sirsc_button-regenerate .result.inline {
+    width: 60px;
+}
+
+.sirsc_button-regenerate .result_inline {
+    height: 30px;
+    position: absolute;
+    width: 195px;
+}
+
+.sirsc_button-regenerate-wrap {
+    position: relative;
+}
+
+.sirsc_button-regenerate-wrap ul li {
+    padding: 5px;
+}
+
+.sirsc_under-image-options {
+    background: #AAA;
+    filter: alpha(opacity=60);
+    -moz-opacity: 0.6;
+    opacity: 0.6;
+    position: fixed;
+    z-Index: 88888;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 100%;
+    padding: 0px;
+    margin: 0px;
+}
+
+.image-src-column {
+    text-align: center;
+}
+
+.sirsc_image-action-column {
+    text-align: right;
+}
+
+.sirsc_image-action-column table {
+    float: right
+}
+
+.sirsc_image-action-column table tr td {
+    padding: 2px 2px;
+    vertical-align: middle;
+    text-align: center;
+    background-color: transparent !important;
+}
+
+.sirsc_image-size-selection-box img, img.sirsc_image-size {
+    max-width: 120px !important;
+    max-height: 120px !important;
+    width: auto !important;
+    height: auto !important;
+    -webkit-box-shadow: 1px 1px 4px 2px rgba(0, 0, 0, 0.2);
+    -moz-box-shadow: 1px 1px 4px 2px rgba(0, 0, 0, 0.2);
+    box-shadow: 1px 1px 4px 2px rgba(0, 0, 0, 0.2);
+    border: 1px solid #000;
+}
+
+.sirsc_button-regenerate .button-primary {
+    position: relative !important;
+    display: inline-block;
+    clear: none !important;
+    margin-right: 5px;
+    margin-bottom: 5px;
+}
+
+.sirsc_button-regenerate .button-primary .dashicons {
+    margin-top: 3px;
+    margin-left: -6px;
+    color: #FFF !important;
+}
+
+#ajax_show_available_sizes, .ajax_show_available_sizes {
+    width: 450px;
+    height: 450px;
+    overflow: scroll;
+    background-color: #FFF;
+    padding: 5px;
+}
+
+.sirsc_options-title {
+    display: block;
+    position: relative;
+    height: 42px;
+    overflow: hidden;
+    background-color: transparent;
+}
+
+.sirsc_options-title h2 {
+    padding: 0px !important;
+    padding-top: 0px !important;
+    padding-bottom: 0px !important;
+    margin: 0px !important;
+    margin-top: 0px !important;
+    margin-bottom: 0px !important;
+    line-height: 42px;
+    display: inline-block !important;
+    width: auto !important;
+}
+
+.sirsc_options-close-button {
+    display: inline-block;
+    width: 32px !important;
+    height: 32px !important;
+    overflow: hidden;
+    position: absolute;
+    right: 0px;
+    top: 5px;
+    border-radius: 45px;
+    -moz-border-radius: 45px;
+    -webkit-border-radius: 45px;
+}
+
+.sirsc_options-close-button .dashicons {
+    font-size: 32px;
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    padding: 0px;
+    margin: 0px;
+    top: 5px;
+    left: 0px;
+    color: #555;
+}
+
+.sirsc_options-title > a > .dashicons {
+    font-size: 32px;
+    display: inline-block;
+    width: 32px;
+    height: 32px;
+    padding: 0px;
+    margin: 0px;
+    margin-left: 10px;
+    color: #555;
+    top: 5px;
+    position: absolute;
+}
