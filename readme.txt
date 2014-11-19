@@ -10,7 +10,7 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Donate Link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=JJA37EHZXWUTJ
 
 == Description ==
-The plugin appends two custom buttons that allows you to regenereate and crop the images, provides details about the image sizes registered in the application and the status of each image sizes for images. 
+The plugin appends two custom buttons that allows you to regenereate and crop the images, provides details about the image sizes registered in the application and the status of each image sizes for images. The plugin also appends a sub-menu to "Settings" that allows you to configure the plugin for global or particular post type attached images and to enable the developer mode for debug if necessary.
 
 The "Details/Options" button will open a lightbox where you can see all the image sizes registered in the application and details about the status of each image sizes for that image. If one of the image sizes has not been found, you will see more details about this and, if possible, the option to manually genereate this (for example the image size width and height are compatible with the original image). For the image sizes that are of "crop" type, you will be able to re-crop in one click the image using a specific portion of the original image: left/top, center/top, right/top, left/center, center/center, right/center, left/bottom, center/bottom, right/bottom. The preview of the result is shown right away, so you can re-crop if necessary.
 
