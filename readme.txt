@@ -10,7 +10,7 @@ License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Donate Link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=JJA37EHZXWUTJ
 
 == Description ==
-This plugin appends two custom buttons that allows you to regenereate and crop the images, and provides details about all the image sizes registered in the application and details about the status of each image sizes for images. 
+The plugin appends two custom buttons that allows you to regenereate and crop the images, provides details about the image sizes registered in the application and the status of each image sizes for images. 
 
 The "Details/Options" button will open a lightbox where you can see all the image sizes registered in the application and details about the status of each image sizes for that image. If one of the image sizes has not been found, you will see more details about this and, if possible, the option to manually genereate this (for example the image size width and height are compatible with the original image). For the image sizes that are of "crop" type, you will be able to re-crop in one click the image using a specific portion of the original image: left/top, center/top, right/top, left/center, center/center, right/center, left/bottom, center/bottom, right/bottom. The preview of the result is shown right away, so you can re-crop if necessary.
 
@@ -27,10 +27,10 @@ The plugin does not require any additional code, it hooks in the admin_post_thum
 admin_enqueue_scripts, init, add_meta_boxes, wp_ajax_, plugins_loaded, admin_menu, intermediate_image_sizes_advanced, added_post_meta, image_downsize, admin_post_thumbnail_html, edit_form_top, image_regenerate_select_crop_button
 
 == Screenshots ==
-1. The custom buttons are added in the featured image box or to edit media page, and by clicking the Details/Options button you can access the details of that image and options to regenerate / crop this for a particular image size (see /assets/screenshot-1.png). As you can see, the image was not found for the image size name called in the example "4columns", hence, on the front side the full size image is provided.
-2. After regenerationg the "4columns" image, you will be able to crop this and preview the result on the fly. (see /assets/screenshot-2.png). Based on the crop type you chose, the front image will be updated.
-3. However, you can regenerate all images for a selected image size (see /assets/screenshot-3.png) and the result will be that all the front side tiles from the example will have the same size and fit as required.
-4. The developer more for placeholders allows you to select the global mode or the "only missing images" mode (see /assets/screenshot-4.png). This allows you to identify on the front side the image sizes names used in different layouts and also you can identify what are the images that did not get to be generated due to various reasons or development steps.
+1. The custom buttons are added in the featured image box or to edit media page, and by clicking the Details/Options button you can access the details of that image and options to regenerate / crop this for a particular image size. As you can see, the image was not found for the image size name called in the example "4columns", hence, on the front side the full size image is provided.
+2. After regenerationg the "4columns" image, you will be able to crop this and preview the result on the fly. Based on the crop type you chose, the front image will be updated.
+3. However, you can regenerate all images for a selected image size and the result will be that all the front side tiles from the example will have the same size and fit as required.
+4. The developer mode for placeholders allows you to select the global mode or the "only missing images" mode. This allows you to identify on the front side the image sizes names used in different layouts and also you can identify what are the images that did not get to be generated due to various reasons or development steps.
 
 == Frequently Asked Questions ==
 None
@@ -51,8 +51,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 If you want to display the custom buttons in your plugins, you can use the custom action with $attachmentId parameter as the image post->ID you want the button for. Usage example : do_action( 'image_regenerate_select_crop_button', $attachmentId );
 
 == Images Placeholders Developer Mode == 
-This option allows you to display placeholders for front-side images called programmatically (that are not embedded in content with their src,
-but retrieved with the wp_get_attachment_image_src, and the other related WP native functions). If there is no placeholder set, then the default behavior would be to display the full size image instead of a missing image size.
+This option allows you to display placeholders for front-side images called programmatically (that are not embedded in content with their src, but retrieved with the wp_get_attachment_image_src, and the other related WP native functions). If there is no placeholder set, then the default behavior would be to display the full size image instead of a missing image size.
 If you activate the "force global" option, all the images on the front size that are related to posts will be replaced with the placeholders that mention the image size required. This is useful for debug, to quick identify the image sizes used for each layout. 
 If you activate the "only missing images" option, all the images on the front size that are related to posts and do not have the requested image size generate, will be replaced with the placeholders that mention the image size required. This is useful for showing smaller images instead of full size images. 
 
@@ -67,7 +66,7 @@ This option means that the original image will be scaled to a max width or a max
 Leave "nothing selected" to keep the original image as what you upload. 
 
 == Clean Up All ==
-This option allows you to clean up all the image sizes you already have in the application but you don't use these at all. Please be carefull, once you click to remove the selected image size, the action is irreversible, the images generated will be deleted from your folders and database records. 
+This option allows you to clean up all the image sizes you already have in the application but you don't use these at all. Please be careful, once you click to remove the selected image size, the action is irreversible, the images generated will be deleted from your folders and database records. 
 
 == Regenerate All ==
 This option allows you to regenerate all the image for the selected image size Please be careful, once you click to regenerate the selected image size, the action is irreversible, the images already generated will be overwritten.
