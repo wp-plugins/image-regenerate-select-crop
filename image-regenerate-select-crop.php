@@ -1039,11 +1039,14 @@ class SIRSC_Image_Regenerate_Select_Crop
 			if ( 'all' == $selected_size ) {
 				$sizes = $alls;
 			} else {
+				if( ! empty( $selected_size ) && ! empty( $alls[$selected_size] ) ) {
 				$sizes = array(
 					$selected_size => $alls[$selected_size],
 				);
 				$execute_crop = true;
 			}
+			}
+			if( ! empty( $sizes ) ) {
 			$image = wp_get_attachment_metadata( $id );
 			$filename = get_attached_file( $id );
 			if ( ! empty( $filename ) ) {
@@ -1098,8 +1101,8 @@ class SIRSC_Image_Regenerate_Select_Crop
 							/** We can use the original size if this is a match for the missing generated image size */
 							$all_know_sizes['**full**'] = array(
 								'file'   => basename( $img_meta['file'] ),
-								'width'  => $img_meta['width'],
-								'height' => $img_meta['height'],
+									'width'  => ( ! empty( $img_meta['width'] ) ) ? intval( $img_meta['width'] ) : 0,
+									'height' => ( ! empty( $img_meta['height'] ) ) ? intval( $img_meta['height'] ) : 0,
 							);
 
 							/** This is a strange case when the image size is only a DPI resolution variation */
@@ -1198,6 +1201,7 @@ class SIRSC_Image_Regenerate_Select_Crop
 									$img_meta = wp_get_attachment_metadata( $id );
 									$img_meta['sizes'][$sname] = $saved;
 									wp_update_attachment_metadata( $id, $img_meta );
+									}
 								}
 							}
 						}

@@ -52,8 +52,8 @@ If you want to display the custom buttons in your plugins, you can use the custo
 
 == Images Placeholders Developer Mode == 
 This option allows you to display placeholders for front-side images called programmatically (that are not embedded in content with their src, but retrieved with the wp_get_attachment_image_src, and the other related WP native functions). If there is no placeholder set, then the default behavior would be to display the full size image instead of a missing image size.
-If you activate the "force global" option, all the images on the front size that are related to posts will be replaced with the placeholders that mention the image size required. This is useful for debug, to quick identify the image sizes used for each layout. 
-If you activate the "only missing images" option, all the images on the front size that are related to posts and do not have the requested image size generate, will be replaced with the placeholders that mention the image size required. This is useful for showing smaller images instead of full size images. 
+If you activate the "force global" option, all the images on the front side that are related to posts will be replaced with the placeholders that mention the image size required. This is useful for debug, to quick identify the image sizes used for each layout. 
+If you activate the "only missing images" option, all the images on the front side that are related to posts and do not have the requested image size generate, will be replaced with the placeholders that mention the image size required. This is useful for showing smaller images instead of full size images. 
 
 == Global Ignore ==
 This option allows you to exclude globally from the application some of the image sizes that are registered through various plugins and themes options, but you don't need these in your application at all (these are just stored in your folders and database but not used). By excluding these, the unnecessary image sizes will not be generated at all. 
