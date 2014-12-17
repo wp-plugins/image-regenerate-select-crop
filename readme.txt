@@ -3,7 +3,7 @@ Contributors: Iulia Cazan
 Author URI: https://profiles.wordpress.org/iulia-cazan
 Tags: media, image, image sizes, image crop, image regenerate, image sizes details, missing images, image placeholder, image debug
 Requires at least: not tested
-Tested up to: wp 4.0
+Tested up to: wp 4.1
 Stable tag:  1.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
