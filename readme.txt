@@ -1,10 +1,10 @@
 === Plugin Name ===
 Contributors: Iulia Cazan 
 Author URI: https://profiles.wordpress.org/iulia-cazan
-Tags: media, image, image sizes, image crop, image regenerate, image sizes details, missing images, image placeholder, image debug
+Tags: media, image, image sizes, image crop, image regenerate, image sizes details, missing images, image placeholder, image debug, wp-cli, command line, default crop
 Requires at least: not tested
 Tested up to: wp 4.1
-Stable tag:  1.0
+Stable tag:  2.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Donate Link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=JJA37EHZXWUTJ
@@ -45,6 +45,7 @@ None
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
 
 == Version history ==
+2.0 - Add the default crop configuration and the wp-cli extension.
 1.0 - Development version.
 
 == Custom Actions ==
@@ -70,3 +71,6 @@ This option allows you to clean up all the image sizes you already have in the a
 
 == Regenerate All ==
 This option allows you to regenerate all the image for the selected image size Please be careful, once you click to regenerate the selected image size, the action is irreversible, the images already generated will be overwritten.
+
+== Default Crop ==
+This option allows you to set a default crop position for the images generated for particular image size. This default option will be used when you chose to regenerate an individual image or all of these and also when a new image is uploaded.

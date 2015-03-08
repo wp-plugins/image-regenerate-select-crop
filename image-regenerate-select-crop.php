@@ -3,7 +3,7 @@
 Plugin Name: Image Regenerate & Select Crop
 Description: Regenerate and crop images, details about all image sizes registered, status details for all the images, clean up and placeholders.
 Author: Iulia Cazan
-Version: 1.0.0
+Version: 2.0.0
 Author URI: https://profiles.wordpress.org/iulia-cazan
 Donate Link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=JJA37EHZXWUTJ
 License: GPL2
@@ -38,9 +38,10 @@ class SIRSC_Image_Regenerate_Select_Crop
 {
 	private static $instance;
 	var $is_configured = false;
-	var $settings;
+	public static $settings;
 	var $exclude_post_type = array();
 	var $limit9999 = 300;
+	var $crop_positions = array();
 
 	/**
 	 * Get active object instance
@@ -74,8 +75,8 @@ class SIRSC_Image_Regenerate_Select_Crop
 	 * @return void
 	 */
 	private function init() {
-		$this->settings = get_option( 'sirsc_settings' );
-		$this->is_configured = ( ! empty( $this->settings ) ) ? true : false;
+		self::$settings = get_option( 'sirsc_settings' );
+		$this->is_configured = ( ! empty( self::$settings ) ) ? true : false;
 		$this->exclude_post_type = array( 'nav_menu_item', 'revision', 'attachment' );
 
 		if ( is_admin() ) {
@@ -87,29 +88,42 @@ class SIRSC_Image_Regenerate_Select_Crop
 			add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
 			add_action( 'admin_menu', array( $this, 'admin_menu' ) );
 			register_deactivation_hook( __FILE__, array( $this, 'deactivate_plugin' ) );
+
+			$this->crop_positions = array(
+				'lt' => __( 'Left/Top', 'sirsc' ),
+				'ct' => __( 'Center/Top', 'sirsc' ),
+				'rt' => __( 'Right/Top', 'sirsc' ),
+				'lc' => __( 'Left/Center', 'sirsc' ),
+				'cc' => __( 'Center/Center', 'sirsc' ),
+				'rc' => __( 'Right/Center', 'sirsc' ),
+				'lb' => __( 'Left/Bottom', 'sirsc' ),
+				'cb' => __( 'Center/Bottom', 'sirsc' ),
+				'rb' => __( 'Right/Bottom', 'sirsc' ),
+			);
 		}
 
 		/** This is global, as the image sizes can be also registerd in the themes or other plugins */
 		add_filter( 'intermediate_image_sizes_advanced', array( $this, 'filter_ignore_global_image_sizes' ) );
 		add_action( 'added_post_meta', array( $this, 'process_filtered_attachments' ), 10, 4 );
 
-		if ( ! is_admin() && ! empty( $this->settings['placeholders'] ) ) {
+		if ( ! is_admin() && ! empty( self::$settings['placeholders'] ) ) {
 			/** For the front side, let's use placeolders if the case.*/
-			if ( ! empty( $this->settings['placeholders']['force_global'] ) ) {
+			if ( ! empty( self::$settings['placeholders']['force_global'] ) ) {
 				add_filter( 'image_downsize', array( $this, 'image_downsize_placeholder_force_global' ), 10, 3 );
-			} elseif ( ! empty( $this->settings['placeholders']['only_missing'] ) ) {
+			} elseif ( ! empty( self::$settings['placeholders']['only_missing'] ) ) {
 				add_filter( 'image_downsize', array( $this, 'image_downsize_placeholder_only_missing' ), 10, 3 );
 			}
 		}
 	}
-	
+
 	/**
 	 * SIRSC_Image_Regenerate_Select_Crop::deactivate_plugin() The actions to be executed when the plugin is deactivated
 	 */
 	function deactivate_plugin() {
 		global $wpdb;
-		$tmpQuery = $wpdb->prepare( "SELECT option_name FROM " . $wpdb->options . " WHERE option_name like %s",
-			'sirsc_settings%'
+		$tmpQuery = $wpdb->prepare( "SELECT option_name FROM " . $wpdb->options . " WHERE option_name like %s OR option_name like %s ",
+			'sirsc_settings%',
+			'sirsc_types%'
 		);
 		$rows = $wpdb->get_results( $tmpQuery, ARRAY_A );
 		if ( ! empty( $rows ) && is_array( $rows ) ) {
@@ -164,7 +178,7 @@ class SIRSC_Image_Regenerate_Select_Crop
 		$pt = ( ! empty( $post_type ) ) ? '_' . $post_type : '';
 		$tmp_set = get_option( 'sirsc_settings' . $pt );
 		if ( ! empty( $tmp_set ) ) {
-			$this->settings = $tmp_set;
+			self::$settings = $tmp_set;
 		}
 	}
 
@@ -176,10 +190,10 @@ class SIRSC_Image_Regenerate_Select_Crop
 		if ( ! empty( $post->post_parent ) ) {
 			$pt = get_post_type( $post->post_parent );
 			if ( ! empty( $pt ) ) {
-				$this->get_post_type_settings( $pt );
+				self::get_post_type_settings( $pt );
 			}
 		} elseif ( ! empty( $post->post_type ) ) {
-			$this->get_post_type_settings( $post->post_type );
+			self::get_post_type_settings( $post->post_type );
 		}
 	}
 
@@ -187,8 +201,8 @@ class SIRSC_Image_Regenerate_Select_Crop
 	 * SIRSC_Image_Regenerate_Select_Crop::filter_ignore_global_image_sizes() Exclude globally the image sizes selected in the settings from being generated on upload
 	 */
 	function filter_ignore_global_image_sizes( $sizes ) {
-		if ( ! empty( $this->settings['complete_global_ignore'] ) ) {
-			foreach ( $this->settings['complete_global_ignore'] as $s ) {
+		if ( ! empty( self::$settings['complete_global_ignore'] ) ) {
+			foreach ( self::$settings['complete_global_ignore'] as $s ) {
 				unset( $sizes[$s] );
 			}
 		}
@@ -204,11 +218,20 @@ class SIRSC_Image_Regenerate_Select_Crop
 	 * @param array $meta_value
 	 */
 	function process_filtered_attachments( $meta_id = '', $post_id = '', $meta_key = '', $meta_value = '' ) {
-		$this->load_settings_for_post_id( $post_id );
-		if ( ! empty( $post_id ) && '_wp_attachment_metadata' == $meta_key && ! empty( $meta_value ) && ! empty( $this->settings['force_original_to'] ) ) {
-			$size = $this->get_all_image_sizes( $this->settings['force_original_to'] );
-			$m = $this->process_image_resize_brute( $post_id, $size['width'], $size['height'] );
-			return ( $m );
+		if ( ! empty( $post_id ) && '_wp_attachment_metadata' == $meta_key && ! empty( $meta_value ) ) {
+			$this->load_settings_for_post_id( $post_id );
+			if ( ! empty( self::$settings['default_crop'] ) ) {
+				foreach ( self::$settings['default_crop'] as $ck => $cv ) {
+					if ( 'cc' != $cv ) {
+						$this->make_images_if_not_exists( $post_id, $ck, $cv );
+					}
+				}
+			}
+			if ( ! empty( self::$settings['force_original_to'] ) ) {
+				$size = $this->get_all_image_sizes( self::$settings['force_original_to'] );
+				$m = $this->process_image_resize_brute( $post_id, $size['width'], $size['height'] );
+				return ( $m );
+			}
 		}
 	}
 
@@ -299,6 +322,7 @@ class SIRSC_Image_Regenerate_Select_Crop
 					'force_original_to'      => '',
 					'complete_global_ignore' => array(),
 					'placeholders'           => array(),
+					'default_crop'           => array(),
 				);
 				$exclude_size = array();
 				if ( ! empty( $_POST['_sirsrc_exclude_size'] ) ) {
@@ -321,6 +345,11 @@ class SIRSC_Image_Regenerate_Select_Crop
 						$settings['placeholders']['only_missing'] = 1;
 					}
 				}
+				if ( ! empty( $_POST['_sirsrc_default_crop'] ) ) {
+					foreach ( $_POST['_sirsrc_default_crop'] as $k => $v ) {
+						$settings['default_crop'][$k] = sanitize_text_field( $v );
+					}
+				}
 
 				$_sirsc_post_types = ( ! empty( $_POST['_sirsc_post_types'] ) ) ? '_' . sanitize_text_field( $_POST['_sirsc_post_types'] ) : '';
 				update_option( 'sirsc_settings' . $_sirsc_post_types, $settings );
@@ -341,9 +370,9 @@ class SIRSC_Image_Regenerate_Select_Crop
 		<?php
 		$post_types = $this->get_all_post_types_plugin();
 		$_sirsc_post_types = ( ! empty( $_GET['_sirsc_post_types'] ) ) ? $_GET['_sirsc_post_types'] : '';
-		$settings = get_option( 'sirsc_settings' );
+		$settings = maybe_unserialize( get_option( 'sirsc_settings' ) );
 		if ( ! empty( $_sirsc_post_types ) ) {
-			$settings = get_option( 'sirsc_settings_' . $_sirsc_post_types );
+			$settings = maybe_unserialize( get_option( 'sirsc_settings_' . $_sirsc_post_types ) );
 		}
 		?>
 
@@ -430,205 +459,227 @@ class SIRSC_Image_Regenerate_Select_Crop
 
 		<?php
 		if ( ! empty( $post_types ) ) {
+			$ptypes = array();
 			echo '<select name="_sirsc_post_types" id="_sirsc_post_type" onchange="sirsc_load_post_type(this, \'' . admin_url( 'options-general.php?page=image-regenerate-select-crop-settings' ) . '\')">
 					<option value="">' . __( 'General settings (used as default for all images)', 'sirsc' ) . '</option>';
 			foreach ( $post_types as $pt => $obj ) {
+				array_push( $ptypes, $pt );
 				$is_selected = ( $_sirsc_post_types == $pt ) ? 1 : 0;
 				$extra = ( ! empty( $obj->_builtin ) ) ? '' : ' (custom post type)';
 				echo '<option value="' . esc_attr( $pt ) . '" ' . selected( 1, $is_selected, true ) . '>' . __( 'Settings for images attached to a ', 'sirsc' ) . ' ' . esc_html( $pt . $extra ) . '</option>';
 			}
 			echo '</select><hr />';
+			update_option( 'sirsc_types_options', $ptypes );
 		}
 		?>
 
 		<table id="main_settings_block" class="form-table fixed" cellspacing="0">
-			<tr>
-				<td class="vtopAlign">
-					<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
-						   onclick="sirsc_toggle_info('#info_global_ignore')"></a> <?php _e( 'Global Ignore', 'sirsc' ); ?></h3>
+		<tr>
+			<td class="vtopAlign">
+				<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
+					   onclick="sirsc_toggle_info('#info_global_ignore')"></a> <?php _e( 'Global Ignore', 'sirsc' ); ?></h3>
 
-					<div class="sirsc_info_box_wrap">
-						<div id="info_global_ignore" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_global_ignore')">
-							<?php _e( 'This option allows you to exclude globally from the application some of the image sizes that are registered through various plugins and themes options, but you don\'t need these in your application at all (these are just stored in your folders and database but not used).', 'sirsc' ); ?>
-							<hr/><?php _e( 'By excluding these, the unnecessary image sizes will not be generated at all.', 'sirsc' ); ?>
-						</div>
+				<div class="sirsc_info_box_wrap">
+					<div id="info_global_ignore" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_global_ignore')">
+						<?php _e( 'This option allows you to exclude globally from the application some of the image sizes that are registered through various plugins and themes options, but you don\'t need these in your application at all (these are just stored in your folders and database but not used).', 'sirsc' ); ?>
+						<hr/><?php _e( 'By excluding these, the unnecessary image sizes will not be generated at all.', 'sirsc' ); ?>
 					</div>
-				</td>
-				<td class="vtopAlign">
-					<h3><?php _e( 'Image Size Name', 'sirsc' ); ?></h3>
-				</td>
-				<td class="vtopAlign">
-					<h3><?php _e( 'Image Size Description', 'sirsc' ); ?></h3>
-				</td>
-				<td class="vtopAlign">
-					<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
-						   onclick="sirsc_toggle_info('#info_exclude')"></a> <?php _e( 'Hide Preview', 'sirsc' ); ?></h3>
+				</div>
+			</td>
+			<td class="vtopAlign">
+				<h3><?php _e( 'Image Size Name', 'sirsc' ); ?></h3>
+			</td>
+			<td class="vtopAlign">
+				<h3><?php _e( 'Image Size Description', 'sirsc' ); ?></h3>
+			</td>
+			<td class="vtopAlign">
+				<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
+					   onclick="sirsc_toggle_info('#info_exclude')"></a> <?php _e( 'Hide Preview', 'sirsc' ); ?></h3>
 
-					<div class="sirsc_info_box_wrap">
-						<div id="info_exclude" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_exclude')">
-							<?php _e( 'This option allows you to exclude from the "Image Regenerate & Select Crop Settings" lightbox the details and options for the selected image sizes.', 'sirsc' ); ?>
-							<hr/><?php _e( 'This is usefull when you want to restrict from other users the functionality of crop or resize for particular image sizes', 'sirsc' ); ?>
-						</div>
+				<div class="sirsc_info_box_wrap">
+					<div id="info_exclude" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_exclude')">
+						<?php _e( 'This option allows you to exclude from the "Image Regenerate & Select Crop Settings" lightbox the details and options for the selected image sizes.', 'sirsc' ); ?>
+						<hr/><?php _e( 'This is usefull when you want to restrict from other users the functionality of crop or resize for particular image sizes', 'sirsc' ); ?>
 					</div>
-				</td>
-				<td class="vtopAlign">
-					<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
-						   onclick="sirsc_toggle_info('#info_force_original')"></a> <?php _e( 'Force Original', 'sirsc' ); ?></h3>
-					<label>
-						<input type="radio" name="_sirsrc_force_original_to" id="_sirsrc_force_original_to_0"
-							   value="0" <?php checked( 1, 1, true ); ?> />
-						<?php _e( 'nothing selected', 'sirsc' ); ?>
-					</label>
+				</div>
+			</td>
+			<td class="vtopAlign">
+				<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
+					   onclick="sirsc_toggle_info('#info_force_original')"></a> <?php _e( 'Force Original', 'sirsc' ); ?></h3>
+				<label>
+					<input type="radio" name="_sirsrc_force_original_to" id="_sirsrc_force_original_to_0"
+						   value="0" <?php checked( 1, 1, true ); ?> />
+					<?php _e( 'nothing selected', 'sirsc' ); ?>
+				</label>
 
-					<div class="sirsc_info_box_wrap">
-						<div id="info_force_original" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_force_original')">
-							<?php _e( 'This option means that the original image will be scaled to a max width or a max height specified by the image size you select.', 'sirsc' ); ?>
-							<hr/><?php _e( 'This might be useful if you do not use the original image in any of the layout at the full size, and this might save some storage space.', 'sirsc' ); ?>
-							<hr/><?php _e( 'Leave "nothing selected" to keep the original image as what you upload.', 'sirsc' ); ?>
-						</div>
+				<div class="sirsc_info_box_wrap">
+					<div id="info_force_original" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_force_original')">
+						<?php _e( 'This option means that the original image will be scaled to a max width or a max height specified by the image size you select.', 'sirsc' ); ?>
+						<hr/><?php _e( 'This might be useful if you do not use the original image in any of the layout at the full size, and this might save some storage space.', 'sirsc' ); ?>
+						<hr/><?php _e( 'Leave "nothing selected" to keep the original image as what you upload.', 'sirsc' ); ?>
 					</div>
-				</td>
-				<td class="vtopAlign">
-					<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
-						   onclick="sirsc_toggle_info('#info_clean_up')"></a> <?php _e( 'Clean Up All', 'sirsc' ); ?></h3>
+				</div>
+			</td>
+			<td class="vtopAlign">
+				<h3><a class="dashicons dashicons-info" title="<?php _e( 'Default Crop', 'sirsc' ); ?>"
+					   onclick="sirsc_toggle_info('#info_default_crop')"></a> <?php _e( 'Default Crop', 'sirsc' ); ?></h3>
 
-					<div class="sirsc_info_box_wrap">
-						<div id="info_clean_up" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_clean_up')">
-							<?php _e( 'This option allows you to clean up all the image sizes you already have in the application but you don\'t use these at all.', 'sirsc' ); ?>
-							<hr/><?php _e( 'Please be carefull, once you click to remove the selected image size, the action is irreversible,
+				<div class="sirsc_info_box_wrap">
+					<div id="info_default_crop" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_default_crop')">
+						<?php _e( 'This option allows you to set a default crop position for the images generated for particular image size. This default option will be used when you chose to regenerate an individual image or all of these and also when a new image is uploaded.', 'sirsc' ); ?>
+					</div>
+				</div>
+			</td>
+			<td class="vtopAlign">
+				<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
+					   onclick="sirsc_toggle_info('#info_clean_up')"></a> <?php _e( 'Clean Up All', 'sirsc' ); ?></h3>
+
+				<div class="sirsc_info_box_wrap">
+					<div id="info_clean_up" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_clean_up')">
+						<?php _e( 'This option allows you to clean up all the image sizes you already have in the application but you don\'t use these at all.', 'sirsc' ); ?>
+						<hr/><?php _e( 'Please be carefull, once you click to remove the selected image size, the action is irreversible,
 							the images generated will be deleted from your folders and database records.', 'sirsc' ); ?>
-						</div>
 					</div>
-				</td>
-				<td class="vtopAlign">
-					<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
-						   onclick="sirsc_toggle_info('#info_regenerate')"></a> <?php _e( 'Regenerate All', 'sirsc' ); ?></h3>
+				</div>
+			</td>
+			<td class="vtopAlign">
+				<h3><a class="dashicons dashicons-info" title="<?php _e( 'Details', 'sirsc' ); ?>"
+					   onclick="sirsc_toggle_info('#info_regenerate')"></a> <?php _e( 'Regenerate All', 'sirsc' ); ?></h3>
 
-					<div class="sirsc_info_box_wrap">
-						<div id="info_regenerate" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_regenerate')">
-							<?php _e( 'This option allows you to regenerate all the image for the selected image size', 'sirsc' ); ?>
-							<hr/><?php _e( 'Please be carefull, once you click to regenerate the selected image size, the action is irreversible,
+				<div class="sirsc_info_box_wrap">
+					<div id="info_regenerate" class="sirsc_info_box" onclick="sirsc_toggle_info('#info_regenerate')">
+						<?php _e( 'This option allows you to regenerate all the image for the selected image size', 'sirsc' ); ?>
+						<hr/><?php _e( 'Please be carefull, once you click to regenerate the selected image size, the action is irreversible,
 							the images already generated will be overwritten.', 'sirsc' ); ?>
-						</div>
 					</div>
-				</td>
-			</tr>
+				</div>
+			</td>
+		</tr>
 
-			<?php
-			$all_sizes = $this->get_all_image_sizes();
-			if ( ! empty( $all_sizes ) ) {
-				foreach ( $all_sizes as $k => $v ) {
-					$is_checked = ( ! empty( $settings['exclude'] ) && in_array( $k, $settings['exclude'] ) ) ? 1 : 0;
-					$is_checked_ignore = ( ! empty( $settings['complete_global_ignore'] ) && in_array( $k, $settings['complete_global_ignore'] ) ) ? 1 : 0;
-					$is_checked_force = ( ! empty( $settings['force_original_to'] ) && $k == $settings['force_original_to'] ) ? 1 : 0;
-					$cl = ( ! empty( $is_checked_ignore ) ) ? ' _sirsc_ignored' : '';
-					$cl .= ( ! empty( $is_checked_force ) ) ? ' _sirsc_force_original' : '';
-					$cl .= ( empty( $is_checked ) ) ? ' _sirsc_included' : '';
-					?>
-					<tr class="<?php echo esc_attr( $cl ); ?>">
-						<td class="vtopAlign">
-							<label>
-								<input type="checkbox" name="_sirsrc_complete_global_ignore[<?php echo esc_attr( $k ); ?>]"
-									   id="_sirsrc_complete_global_ignore_<?php echo esc_attr( $k ); ?>"
-									   value="<?php echo esc_attr( $k ); ?>" <?php checked( 1, $is_checked_ignore, true ); ?> />
-								<?php _e( 'global ignore', 'sirsc' ); ?>
-							</label>
-						</td>
-						<td class="vtopAlign">
-							<b><?php esc_html_e( $k ); ?></b>
-							<?php $this->image_placeholder_for_image_size( $k, true ); ?>
-						</td>
-						<td class="vtopAlign"><?php echo $this->size_to_text( $v ); ?></td>
-						<td class="vtopAlign">
-							<label>
-								<input type="checkbox" name="_sirsrc_exclude_size[<?php echo esc_attr( $k ); ?>]"
-									   id="_sirsrc_exclude_size_<?php echo esc_attr( $k ); ?>"
-									   value="<?php echo esc_attr( $k ); ?>" <?php checked( 1, $is_checked, true ); ?> />
-								<?php _e( 'hide', 'sirsc' ); ?>
-							</label>
-						</td>
-						<td class="vtopAlign">
-							<label>
-								<input type="radio" name="_sirsrc_force_original_to" id="_sirsrc_force_original_to_<?php echo esc_attr( $k ); ?>"
-									   value="<?php echo esc_attr( $k ); ?>" <?php checked( 1, $is_checked_force, true ); ?> />
-								<?php _e( 'force original', 'sirsc' ); ?>
-							</label>
-						</td>
-						<td class="vtopAlign">
-							<?php
-							$total_cleanup = $this->calculate_total_to_cleanup( $_sirsc_post_types, $k );
-							if ( ! empty( $total_cleanup ) ) {
-								?>
-								<div class="dashicons dashicons-update" title="<?php _e( 'Clean Up All', 'sirsc' ); ?>"></div>
-								<span class="button-secondary button-large" title="<?php echo intval( $total_cleanup ); ?>"
-									  onclick="sirsc_initiate_cleanup('<?php echo esc_attr( $k ); ?>');">
+		<?php
+		$all_sizes = $this->get_all_image_sizes();
+		if ( ! empty( $all_sizes ) ) {
+			foreach ( $all_sizes as $k => $v ) {
+				$is_checked = ( ! empty( $settings['exclude'] ) && in_array( $k, $settings['exclude'] ) ) ? 1 : 0;
+				$is_checked_ignore = ( ! empty( $settings['complete_global_ignore'] ) && in_array( $k, $settings['complete_global_ignore'] ) ) ? 1 : 0;
+				$is_checked_force = ( ! empty( $settings['force_original_to'] ) && $k == $settings['force_original_to'] ) ? 1 : 0;
+				$cl = ( ! empty( $is_checked_ignore ) ) ? ' _sirsc_ignored' : '';
+				$cl .= ( ! empty( $is_checked_force ) ) ? ' _sirsc_force_original' : '';
+				$cl .= ( empty( $is_checked ) ) ? ' _sirsc_included' : '';
+
+				$has_crop = ( ! empty( $settings['default_crop'][$k] ) ) ? $settings['default_crop'][$k] : 'cc';
+				?>
+				<tr class="<?php echo esc_attr( $cl ); ?>">
+					<td class="vtopAlign">
+						<label>
+							<input type="checkbox" name="_sirsrc_complete_global_ignore[<?php echo esc_attr( $k ); ?>]"
+								   id="_sirsrc_complete_global_ignore_<?php echo esc_attr( $k ); ?>"
+								   value="<?php echo esc_attr( $k ); ?>" <?php checked( 1, $is_checked_ignore, true ); ?> />
+							<?php _e( 'global ignore', 'sirsc' ); ?>
+						</label>
+					</td>
+					<td class="vtopAlign">
+						<b><?php esc_html_e( $k ); ?></b>
+						<?php $this->image_placeholder_for_image_size( $k, true ); ?>
+					</td>
+					<td class="vtopAlign"><?php echo $this->size_to_text( $v ); ?></td>
+					<td class="vtopAlign">
+						<label>
+							<input type="checkbox" name="_sirsrc_exclude_size[<?php echo esc_attr( $k ); ?>]"
+								   id="_sirsrc_exclude_size_<?php echo esc_attr( $k ); ?>"
+								   value="<?php echo esc_attr( $k ); ?>" <?php checked( 1, $is_checked, true ); ?> />
+							<?php _e( 'hide', 'sirsc' ); ?>
+						</label>
+					</td>
+					<td class="vtopAlign">
+						<label>
+							<input type="radio" name="_sirsrc_force_original_to" id="_sirsrc_force_original_to_<?php echo esc_attr( $k ); ?>"
+								   value="<?php echo esc_attr( $k ); ?>" <?php checked( 1, $is_checked_force, true ); ?> />
+							<?php _e( 'force original', 'sirsc' ); ?>
+						</label>
+					</td>
+					<td class="vtopAlign">
+						<?php
+						if ( ! empty( $v['crop'] ) ) {
+							echo str_replace( 'thumb0' . $k, '', str_replace( 'crop_small_type', '_sirsrc_default_crop[' . $k . ']', $this->make_generate_images_crop( 0, $k, false, $has_crop ) ) );
+						}
+						?>
+					</td>
+					<td class="vtopAlign">
+						<?php
+						$total_cleanup = $this->calculate_total_to_cleanup( $_sirsc_post_types, $k );
+						if ( ! empty( $total_cleanup ) ) {
+							?>
+							<div class="dashicons dashicons-update" title="<?php _e( 'Clean Up All', 'sirsc' ); ?>"></div>
+							<span class="button-secondary button-large" title="<?php echo intval( $total_cleanup ); ?>"
+								  onclick="sirsc_initiate_cleanup('<?php echo esc_attr( $k ); ?>');">
 										<?php _e( 'Clean Up', 'sirsc' ); ?>
 									</span>
 
-								<div class="sirsc_button-regenerate-wrap">
-									<div id="_sirsc_cleanup_initiated_for_<?php echo esc_attr( $k ); ?>">
-										<input type="hidden" name="_sisrsc_image_size_name" id="_sisrsc_image_size_name<?php echo esc_attr( $k ); ?>"
-											   value="<?php echo esc_attr( $k ); ?>"/>
-										<input type="hidden" name="_sisrsc_post_type" id="_sisrsc_post_type<?php echo esc_attr( $k ); ?>"
-											   value="<?php echo esc_attr( $_sirsc_post_types ); ?>"/>
-										<input type="hidden" name="_sisrsc_image_size_name_page"
-											   id="_sisrsc_image_size_name_page<?php echo esc_attr( $k ); ?>" value="0"/>
+							<div class="sirsc_button-regenerate-wrap">
+								<div id="_sirsc_cleanup_initiated_for_<?php echo esc_attr( $k ); ?>">
+									<input type="hidden" name="_sisrsc_image_size_name" id="_sisrsc_image_size_name<?php echo esc_attr( $k ); ?>"
+										   value="<?php echo esc_attr( $k ); ?>"/>
+									<input type="hidden" name="_sisrsc_post_type" id="_sisrsc_post_type<?php echo esc_attr( $k ); ?>"
+										   value="<?php echo esc_attr( $_sirsc_post_types ); ?>"/>
+									<input type="hidden" name="_sisrsc_image_size_name_page"
+										   id="_sisrsc_image_size_name_page<?php echo esc_attr( $k ); ?>" value="0"/>
 
-										<div class="sirsc_button-regenerate">
-											<div>
-												<div id="_sirsc_cleanup_initiated_for_<?php echo esc_attr( $k ); ?>_result" class="result"><span
-														class="spinner off"></span></div>
-											</div>
+									<div class="sirsc_button-regenerate">
+										<div>
+											<div id="_sirsc_cleanup_initiated_for_<?php echo esc_attr( $k ); ?>_result" class="result"><span
+													class="spinner off"></span></div>
 										</div>
-										<div class="sirsc_clearAll"></div>
 									</div>
+									<div class="sirsc_clearAll"></div>
 								</div>
-							<?php
-							}
+							</div>
+						<?php
+						}
+						?>
+					</td>
+					<td class="vtopAlign">
+						<?php
+						if ( ! $is_checked_ignore ) {
 							?>
-						</td>
-						<td class="vtopAlign">
-							<?php
-							if ( ! $is_checked_ignore ) {
-								?>
-								<div class="dashicons dashicons-update" title="<?php _e( 'Regenerate All', 'sirsc' ); ?>"></div>
-								<span class="button-primary button-large"
-									  onclick="sirsc_initiate_regenerate('<?php echo esc_attr( $k ); ?>');">
+							<div class="dashicons dashicons-update" title="<?php _e( 'Regenerate All', 'sirsc' ); ?>"></div>
+							<span class="button-primary button-large"
+								  onclick="sirsc_initiate_regenerate('<?php echo esc_attr( $k ); ?>');">
 									<?php _e( 'Regenerate', 'sirsc' ); ?>
 								</span>
-								<div class="sirsc_button-regenerate-wrap">
-									<div id="_sirsc_regenerate_initiated_for_<?php echo esc_attr( $k ); ?>">
-										<input type="hidden" name="_sisrsc_regenerate_image_size_name"
-											   id="_sisrsc_regenerate_image_size_name<?php echo esc_attr( $k ); ?>"
-											   value="<?php echo esc_attr( $k ); ?>"/>
-										<input type="hidden" name="_sisrsc_post_type"
-											   id="_sisrsc_regenerate_post_type<?php echo esc_attr( $k ); ?>"
-											   value="<?php echo esc_attr( $_sirsc_post_types ); ?>"/>
-										<input type="hidden" name="_sisrsc_regenerate_image_size_name_page"
-											   id="_sisrsc_regenerate_image_size_name_page<?php echo esc_attr( $k ); ?>" value="0"/>
+							<div class="sirsc_button-regenerate-wrap">
+								<div id="_sirsc_regenerate_initiated_for_<?php echo esc_attr( $k ); ?>">
+									<input type="hidden" name="_sisrsc_regenerate_image_size_name"
+										   id="_sisrsc_regenerate_image_size_name<?php echo esc_attr( $k ); ?>"
+										   value="<?php echo esc_attr( $k ); ?>"/>
+									<input type="hidden" name="_sisrsc_post_type"
+										   id="_sisrsc_regenerate_post_type<?php echo esc_attr( $k ); ?>"
+										   value="<?php echo esc_attr( $_sirsc_post_types ); ?>"/>
+									<input type="hidden" name="_sisrsc_regenerate_image_size_name_page"
+										   id="_sisrsc_regenerate_image_size_name_page<?php echo esc_attr( $k ); ?>" value="0"/>
 
-										<div class="sirsc_button-regenerate">
-											<div>
-												<div id="_sirsc_regenerate_initiated_for_<?php echo esc_attr( $k ); ?>_result" class="result">
-													<span class="spinner off"></span></div>
-											</div>
+									<div class="sirsc_button-regenerate">
+										<div>
+											<div id="_sirsc_regenerate_initiated_for_<?php echo esc_attr( $k ); ?>_result" class="result">
+												<span class="spinner off"></span></div>
 										</div>
-										<div class="sirsc_clearAll"></div>
 									</div>
+									<div class="sirsc_clearAll"></div>
 								</div>
-							<?php
-							}
-							?>
-						</td>
-					</tr>
-				<?php
-				}
+							</div>
+						<?php
+						}
+						?>
+					</td>
+				</tr>
+			<?php
 			}
-			?>
-			<tr>
-				<td colspan="7">
-					<hr/><?php submit_button(); ?></td>
-			</tr>
+		}
+		?>
+		<tr>
+			<td colspan="7">
+				<hr/><?php submit_button(); ?></td>
+		</tr>
 		</table>
 		</form>
 	<?php
@@ -772,27 +823,23 @@ class SIRSC_Image_Regenerate_Select_Crop
 	 * @param int $attachmentId
 	 * @return string
 	 */
-	function make_generate_images_crop( $attachmentId = 0, $size = 'thumbnail' ) {
-
+	function make_generate_images_crop( $attachmentId = 0, $size = 'thumbnail', $click = true, $selected = 'cc' ) {
 		$id = intval( $attachmentId ) . $size;
+		$action = ( $click ) ? ' onclick="sirsc_crop_position(\'' . $id . '\');"' : '';
 
 		$button_regenerate = '
-		<table cellspacing="0" cellpadding="0" title="' . esc_attr__( 'Click to generate a crop of the image from this position', 'sirsc' ) . '">
-			<tr>
-				<td title="' . esc_attr__( 'Left/Top', 'sirsc' ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="lt" onclick="sirsc_crop_position(\'' . $id . '\');" /></label></td>
-				<td title="' . esc_attr__( 'Center/Top', 'sirsc' ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="ct" onclick="sirsc_crop_position(\'' . $id . '\');" /></label></td>
-				<td title="' . esc_attr__( 'Right/Top', 'sirsc' ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="rt"  onclick="sirsc_crop_position(\'' . $id . '\');" /></label></td>
-			</tr>
-			<tr>
-				<td title="' . esc_attr__( 'Left/Center', 'sirsc' ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="lc"  onclick="sirsc_crop_position(\'' . $id . '\');" /></label></td>
-				<td title="' . esc_attr__( 'Center/Center', 'sirsc' ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="cc"  onclick="sirsc_crop_position(\'' . $id . '\');" /></label></td>
-				<td title="' . esc_attr__( 'Right/Center', 'sirsc' ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="rc"  onclick="sirsc_crop_position(\'' . $id . '\');" /></label></td>
-			</tr>
-			<tr>
-				<td title="' . esc_attr__( 'Left/Bottom', 'sirsc' ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="lb"  onclick="sirsc_crop_position(\'' . $id . '\');" /></label></td>
-				<td title="' . esc_attr__( 'Center/Bottom', 'sirsc' ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="cb"  onclick="sirsc_crop_position(\'' . $id . '\');" /></label></td>
-				<td title="' . esc_attr__( 'Right/Bottom', 'sirsc' ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="rb"  onclick="sirsc_crop_position(\'' . $id . '\');" /></label></td>
-			</tr>
+		<table cellspacing="0" cellpadding="0" title="' . esc_attr__( 'Click to generate a crop of the image from this position', 'sirsc' ) . '">';
+
+		$c = 0;
+		foreach ( $this->crop_positions as $k => $v ) {
+			$sel = ( ! empty( $selected ) && $k == $selected ) ? ' checked="checked"' : '';
+			$button_regenerate .= ( $c % 3 == 0 ) ? '<tr>' : '';
+			$button_regenerate .= '<td title="' . esc_attr( $v ) . '"><label><input type="radio" name="crop_small_type" id="crop_small_type' . 'thumb' . $id . '" value="' . $k . '"' . $action . $sel . ' /></label></td>';
+			$button_regenerate .= ( $c % 3 == 2 ) ? '</tr>' : '';
+			++$c;
+		}
+
+		$button_regenerate .= '
 		</table>';
 		return $button_regenerate;
 	}
@@ -1031,176 +1078,181 @@ class SIRSC_Image_Regenerate_Select_Crop
 	 * @param array $selected_size : the set of defined image sizes used by the site
 	 * @param array $small_crop : the position of a potential crop (lt = left/top, lc = left/center, etc.)
 	 */
-	function make_images_if_not_exists( $id, $selected_size = 'all', $small_crop = '' ) {
+	public function make_images_if_not_exists( $id, $selected_size = 'all', $small_crop = '' ) {
 		try {
 			$execute_crop = false;
-			$this->load_settings_for_post_id( $id );
-			$alls = $this->get_all_image_sizes_plugin();
+			self::load_settings_for_post_id( $id );
+			$alls = self::get_all_image_sizes_plugin();
 			if ( 'all' == $selected_size ) {
 				$sizes = $alls;
 			} else {
-				if( ! empty( $selected_size ) && ! empty( $alls[$selected_size] ) ) {
-				$sizes = array(
-					$selected_size => $alls[$selected_size],
-				);
-				$execute_crop = true;
+				if ( ! empty( $selected_size ) && ! empty( $alls[$selected_size] ) ) {
+					$sizes = array(
+						$selected_size => $alls[$selected_size],
+					);
+					$execute_crop = true;
+
+					if ( empty( $small_crop ) ) {
+						if ( ! empty( self::$settings['default_crop'][$selected_size] ) )
+							$small_crop = self::$settings['default_crop'][$selected_size];
+					}
+				}
 			}
-			}
-			if( ! empty( $sizes ) ) {
-			$image = wp_get_attachment_metadata( $id );
-			$filename = get_attached_file( $id );
-			if ( ! empty( $filename ) ) {
-				foreach ( $sizes as $sname => $sval ) {
-					$execute = false;
-					if ( empty( $image['sizes'][$sname] ) ) {
-						$execute = true;
-					} else {
-						/** Check if the file does exist, else generate it */
-						if ( empty( $image['sizes'][$sname]['file'] ) ) {
+			if ( ! empty( $sizes ) ) {
+				$image = wp_get_attachment_metadata( $id );
+				$filename = get_attached_file( $id );
+				if ( ! empty( $filename ) ) {
+					foreach ( $sizes as $sname => $sval ) {
+						$execute = false;
+						if ( empty( $image['sizes'][$sname] ) ) {
 							$execute = true;
 						} else {
-							$file = str_replace( basename( $filename ), $image['sizes'][$sname]['file'], $filename );
-							if ( ! file_exists( $file ) ) {
+							/** Check if the file does exist, else generate it */
+							if ( empty( $image['sizes'][$sname]['file'] ) ) {
 								$execute = true;
 							} else {
-								/** Check if the file does exist and has the required width and height */
-								$w = ( ! empty( $sval['width'] ) ) ? intval( $sval['width'] ) : 0;
-								$h = ( ! empty( $sval['height'] ) ) ? intval( $sval['height'] ) : 0;
-								$c = ( ! empty( $sval['crop'] ) ) ? $sval['crop'] : false;
-								$c_image_size = getimagesize( $file );
-								$ciw = intval( $c_image_size[0] );
-								$cih = intval( $c_image_size[1] );
-								if ( ! empty( $c ) ) {
-									if ( $w != $ciw || $h != $cih ) {
-										$execute = true;
-									}
+								$file = str_replace( basename( $filename ), $image['sizes'][$sname]['file'], $filename );
+								if ( ! file_exists( $file ) ) {
+									$execute = true;
 								} else {
-									if ( ( $w == 0 && $cih <= $h ) || ( $h == 0 && $ciw <= $w ) || ( $w != 0 && $h != 0 && $ciw <= $w && $cih <= $h ) ) {
-										$execute = true;
+									/** Check if the file does exist and has the required width and height */
+									$w = ( ! empty( $sval['width'] ) ) ? intval( $sval['width'] ) : 0;
+									$h = ( ! empty( $sval['height'] ) ) ? intval( $sval['height'] ) : 0;
+									$c = ( ! empty( $sval['crop'] ) ) ? $sval['crop'] : false;
+									$c_image_size = getimagesize( $file );
+									$ciw = intval( $c_image_size[0] );
+									$cih = intval( $c_image_size[1] );
+									if ( ! empty( $c ) ) {
+										if ( $w != $ciw || $h != $cih ) {
+											$execute = true;
+										}
+									} else {
+										if ( ( $w == 0 && $cih <= $h ) || ( $h == 0 && $ciw <= $w ) || ( $w != 0 && $h != 0 && $ciw <= $w && $cih <= $h ) ) {
+											$execute = true;
+										}
 									}
 								}
 							}
 						}
-					}
 
-					if ( $execute ) {
-						$w = ( ! empty( $sval['width'] ) ) ? intval( $sval['width'] ) : 0;
-						$h = ( ! empty( $sval['height'] ) ) ? intval( $sval['height'] ) : 0;
-						$c = ( ! empty( $sval['crop'] ) ) ? $sval['crop'] : false;
-						$new_meta = image_make_intermediate_size( $filename, $w, $h, $c );
-						if ( $new_meta ) {
-							$img_meta = wp_get_attachment_metadata( $id );
-							$img_meta['sizes'][$sname] = $new_meta;
-							wp_update_attachment_metadata( $id, $img_meta );
-						} else {
-							/** Let's check if there is already an image with the same size but under different size name (in order to update the attachment metadata in a proper way) as in this case the image_make_intermediate_size will not return anything as the image with the specified parameters already exists. */
-							$found_one = false;
-							$all_know_sizes = $image['sizes'];
-							$img_meta = wp_get_attachment_metadata( $id );
-
-							/** We can use the original size if this is a match for the missing generated image size */
-							$all_know_sizes['**full**'] = array(
-								'file'   => basename( $img_meta['file'] ),
-									'width'  => ( ! empty( $img_meta['width'] ) ) ? intval( $img_meta['width'] ) : 0,
-									'height' => ( ! empty( $img_meta['height'] ) ) ? intval( $img_meta['height'] ) : 0,
-							);
-
-							/** This is a strange case when the image size is only a DPI resolution variation */
-							if ( $w == 0 && $h == 0 ) {
-								$w = $all_know_sizes['**full**']['width'];
-								$h = $all_know_sizes['**full**']['height'];
-							}
-
-							if ( true === $c ) {
-								/** We are looking for a perfect match image */
-								foreach ( $all_know_sizes as $aisv ) {
-									if ( $aisv['width'] == $w && $aisv['height'] == $h ) {
-										$tmpfile = str_replace( basename( $filename ), $aisv['file'], $filename );
-										if ( file_exists( $tmpfile ) ) {
-											$found_one = $aisv;
-											break;
-										}
-									}
-								}
-							} else {
-								if ( $w == 0 ) {
-									/** For scale to maximum height */
-									foreach ( $all_know_sizes as $aisv ) {
-										if ( $aisv['height'] == $h && $aisv['width'] != 0 ) {
-											$tmpfile = str_replace( basename( $filename ), $aisv['file'], $filename );
-											if ( file_exists( $tmpfile ) ) {
-												$found_one = $aisv;
-												break;
-											}
-										}
-									}
-								} elseif ( $h == 0 ) {
-									/** For scale to maximum width */
-									foreach ( $all_know_sizes as $aisv ) {
-										if ( $aisv['width'] == $w && $aisv['height'] != 0 ) {
-											$tmpfile = str_replace( basename( $filename ), $aisv['file'], $filename );
-											if ( file_exists( $tmpfile ) ) {
-												$found_one = $aisv;
-												break;
-											}
-										}
-									}
-								} else {
-									/** For scale to maximum width or maximum height */
-									foreach ( $all_know_sizes as $aisv ) {
-										if ( ( $aisv['height'] == $h && $aisv['width'] != 0 ) || ( $aisv['width'] == $w && $aisv['height'] != 0 ) ) {
-											$tmpfile = str_replace( basename( $filename ), $aisv['file'], $filename );
-											if ( file_exists( $tmpfile ) ) {
-												$found_one = $aisv;
-												break;
-											}
-										}
-									}
-								}
-							}
-							if ( $found_one ) {
-								$img_meta = wp_get_attachment_metadata( $id );
-								$img_meta['sizes'][$sname] = $found_one;
-								wp_update_attachment_metadata( $id, $img_meta );
-							}
-						}
-					}
-
-					/** Re-cut the specified image size to the specified position */
-					if ( $selected_size && ! empty( $small_crop ) ) {
-						if ( $selected_size == $sname ) {
+						if ( $execute ) {
 							$w = ( ! empty( $sval['width'] ) ) ? intval( $sval['width'] ) : 0;
 							$h = ( ! empty( $sval['height'] ) ) ? intval( $sval['height'] ) : 0;
-							$cV = $small_crop{0};
-							if ( $cV == 'l' ) {
-								$cV = 'left';
-							}
-							if ( $cV == 'c' ) {
-								$cV = 'center';
-							}
-							if ( $cV == 'r' ) {
-								$cV = 'right';
-							}
-							$cH = $small_crop{1};
-							if ( $cH == 't' ) {
-								$cH = 'top';
-							}
-							if ( $cH == 'c' ) {
-								$cH = 'center';
-							}
-							if ( $cH == 'b' ) {
-								$cH = 'bottom';
-							}
-							$c = array( $cV, $cH );
-							$img = wp_get_image_editor( $filename );
-							if ( ! is_wp_error( $img ) ) {
-								$img->resize( $w, $h, $c );
-								$img->set_quality( 100 );
-								$saved = $img->save();
-								if ( ! empty( $saved ) ) {
+							$c = ( ! empty( $sval['crop'] ) ) ? $sval['crop'] : false;
+							$new_meta = image_make_intermediate_size( $filename, $w, $h, $c );
+							if ( $new_meta ) {
+								$img_meta = wp_get_attachment_metadata( $id );
+								$img_meta['sizes'][$sname] = $new_meta;
+								wp_update_attachment_metadata( $id, $img_meta );
+							} else {
+								/** Let's check if there is already an image with the same size but under different size name (in order to update the attachment metadata in a proper way) as in this case the image_make_intermediate_size will not return anything as the image with the specified parameters already exists. */
+								$found_one = false;
+								$all_know_sizes = $image['sizes'];
+								$img_meta = wp_get_attachment_metadata( $id );
+
+								/** We can use the original size if this is a match for the missing generated image size */
+								$all_know_sizes['**full**'] = array(
+									'file'   => basename( $img_meta['file'] ),
+									'width'  => ( ! empty( $img_meta['width'] ) ) ? intval( $img_meta['width'] ) : 0,
+									'height' => ( ! empty( $img_meta['height'] ) ) ? intval( $img_meta['height'] ) : 0,
+								);
+
+								/** This is a strange case when the image size is only a DPI resolution variation */
+								if ( $w == 0 && $h == 0 ) {
+									$w = $all_know_sizes['**full**']['width'];
+									$h = $all_know_sizes['**full**']['height'];
+								}
+
+								if ( true === $c ) {
+									/** We are looking for a perfect match image */
+									foreach ( $all_know_sizes as $aisv ) {
+										if ( $aisv['width'] == $w && $aisv['height'] == $h ) {
+											$tmpfile = str_replace( basename( $filename ), $aisv['file'], $filename );
+											if ( file_exists( $tmpfile ) ) {
+												$found_one = $aisv;
+												break;
+											}
+										}
+									}
+								} else {
+									if ( $w == 0 ) {
+										/** For scale to maximum height */
+										foreach ( $all_know_sizes as $aisv ) {
+											if ( $aisv['height'] == $h && $aisv['width'] != 0 ) {
+												$tmpfile = str_replace( basename( $filename ), $aisv['file'], $filename );
+												if ( file_exists( $tmpfile ) ) {
+													$found_one = $aisv;
+													break;
+												}
+											}
+										}
+									} elseif ( $h == 0 ) {
+										/** For scale to maximum width */
+										foreach ( $all_know_sizes as $aisv ) {
+											if ( $aisv['width'] == $w && $aisv['height'] != 0 ) {
+												$tmpfile = str_replace( basename( $filename ), $aisv['file'], $filename );
+												if ( file_exists( $tmpfile ) ) {
+													$found_one = $aisv;
+													break;
+												}
+											}
+										}
+									} else {
+										/** For scale to maximum width or maximum height */
+										foreach ( $all_know_sizes as $aisv ) {
+											if ( ( $aisv['height'] == $h && $aisv['width'] != 0 ) || ( $aisv['width'] == $w && $aisv['height'] != 0 ) ) {
+												$tmpfile = str_replace( basename( $filename ), $aisv['file'], $filename );
+												if ( file_exists( $tmpfile ) ) {
+													$found_one = $aisv;
+													break;
+												}
+											}
+										}
+									}
+								}
+								if ( $found_one ) {
 									$img_meta = wp_get_attachment_metadata( $id );
-									$img_meta['sizes'][$sname] = $saved;
+									$img_meta['sizes'][$sname] = $found_one;
 									wp_update_attachment_metadata( $id, $img_meta );
+								}
+							}
+						}
+
+						/** Re-cut the specified image size to the specified position */
+						if ( $selected_size && ! empty( $small_crop ) ) {
+							if ( $selected_size == $sname ) {
+								$w = ( ! empty( $sval['width'] ) ) ? intval( $sval['width'] ) : 0;
+								$h = ( ! empty( $sval['height'] ) ) ? intval( $sval['height'] ) : 0;
+								$cV = $small_crop{0};
+								if ( $cV == 'l' ) {
+									$cV = 'left';
+								}
+								if ( $cV == 'c' ) {
+									$cV = 'center';
+								}
+								if ( $cV == 'r' ) {
+									$cV = 'right';
+								}
+								$cH = $small_crop{1};
+								if ( $cH == 't' ) {
+									$cH = 'top';
+								}
+								if ( $cH == 'c' ) {
+									$cH = 'center';
+								}
+								if ( $cH == 'b' ) {
+									$cH = 'bottom';
+								}
+								$c = array( $cV, $cH );
+								$img = wp_get_image_editor( $filename );
+								if ( ! is_wp_error( $img ) ) {
+									$img->resize( $w, $h, $c );
+									$img->set_quality( 100 );
+									$saved = $img->save();
+									if ( ! empty( $saved ) ) {
+										$img_meta = wp_get_attachment_metadata( $id );
+										$img_meta['sizes'][$sname] = $saved;
+										wp_update_attachment_metadata( $id, $img_meta );
 									}
 								}
 							}
@@ -1233,7 +1285,7 @@ class SIRSC_Image_Regenerate_Select_Crop
 	/**
 	 * SIRSC_Image_Regenerate_Select_Crop::get_all_image_sizes() Returns an array of all the image sizes registered in the application
 	 */
-	function get_all_image_sizes( $size = '' ) {
+	public static function get_all_image_sizes( $size = '' ) {
 		global $_wp_additional_image_sizes;
 		$sizes = array();
 		$get_intermediate_image_sizes = get_intermediate_image_sizes();
@@ -1268,11 +1320,11 @@ class SIRSC_Image_Regenerate_Select_Crop
 	 * SIRSC_Image_Regenerate_Select_Crop::get_all_image_sizes_plugin() Returns an array of all the image sizes registered in the application filtered by the plugin settings and for a specified image size name
 	 */
 	function get_all_image_sizes_plugin( $size = '' ) {
-		$sizes = $this->get_all_image_sizes( $size );
-		if ( ! empty( $this->settings['exclude'] ) ) {
+		$sizes = self::get_all_image_sizes( $size );
+		if ( ! empty( self::$settings['exclude'] ) ) {
 			$newSizes = array();
 			foreach ( $sizes as $k => $si ) {
-				if ( ! in_array( $k, $this->settings['exclude'] ) ) {
+				if ( ! in_array( $k, self::$settings['exclude'] ) ) {
 					$newSizes[$k] = $si;
 				}
 			}
@@ -1293,10 +1345,10 @@ class SIRSC_Image_Regenerate_Select_Crop
 	/**
 	 * SIRSC_Image_Regenerate_Select_Crop::get_all_post_types_plugin() Returns an array of all the post types allowed in the plugin filters
 	 */
-	function get_all_post_types_plugin() {
+	public static function get_all_post_types_plugin() {
 		$post_types = get_post_types( array(), 'objects' );
-		if ( ! empty( $post_types ) && ! empty( $this->exclude_post_type ) ) {
-			foreach ( $this->exclude_post_type as $k ) {
+		if ( ! empty( $post_types ) && ! empty( self::$exclude_post_type ) ) {
+			foreach ( self::$exclude_post_type as $k ) {
 				unset( $post_types[$k] );
 			}
 		}
@@ -1703,3 +1755,207 @@ class SIRSC_Image_Regenerate_Select_Crop
 }
 
 SIRSC_Image_Regenerate_Select_Crop::get_instance();
+
+
+if ( defined( 'WP_CLI' ) && WP_CLI ) {
+	/**
+	 * Quick WP-CLI command to for SIRSC plugin that allows to regenerate and remove images
+	 */
+	class SIRSC_Image_Regenerate_Select_Crop_CLI_Command extends WP_CLI_Command
+	{
+		private static function prepare_args( $args ) {
+			$rez = array(
+				'site_id'   => 1,
+				'post_type' => '',
+				'size_name' => '',
+				'parent_id' => '',
+				'all_sizes' => array(),
+			);
+			if ( ! isset( $args[0] ) ) {
+				WP_CLI::error( __( 'Please specify the site id (1 if not multisite).', 'sirsc' ) );
+				return;
+			} else {
+				$rez['site_id'] = intval( $args[0] );
+			}
+			switch_to_blog( $rez['site_id'] );
+			WP_CLI::line( '******* ****************************************** *******' );
+			WP_CLI::line( '******* EXECUTE OPERATION ON SITE ' . $rez['site_id'] . ' *******' );
+			if ( ! isset( $args[1] ) ) {
+				$post_types = get_option( 'sirsc_types_options', array() );
+				if ( ! empty( $post_types ) ) {
+					$av = '';
+					foreach ( $post_types as $k => $v ) {
+						$av .= ( '' == $av ) ? '' : ', ';
+						$av .= $v;
+					}
+				} else {
+					$post_types = SIRSC_Image_Regenerate_Select_Crop::get_all_post_types_plugin();
+					$av = '';
+					foreach ( $post_types as $k => $v ) {
+						$av .= ( '' == $av ) ? '' : ', ';
+						$av .= $k;
+					}
+				}
+				WP_CLI::error( 'Please specify the post type (one of: ' . $av . ', etc).' );
+				return;
+			} else {
+				$rez['post_type'] = trim( $args[1] );
+			}
+			$all_sizes = SIRSC_Image_Regenerate_Select_Crop::get_all_image_sizes();
+			$rez['all_sizes'] = $all_sizes;
+			if ( ! isset( $args[2] ) ) {
+				$ims = '';
+				foreach ( $all_sizes as $k => $v ) {
+					$ims .= ( '' == $ims ) ? '' : ', ';
+					$ims .= $k;
+				}
+				WP_CLI::error( 'Please specify the image size name (one of: ' . $ims . ').' );
+				return;
+			} else {
+				if ( 'all' == $args[2] || ! empty( $all_sizes[$args[2]] ) ) {
+					$rez['size_name'] = trim( $args[2] );
+				} else {
+					WP_CLI::error( 'Please specify a valid image size name.' );
+					return;
+				}
+			}
+			if ( isset( $args[3] ) ) {
+				$rez['parent_id'] = intval( $args[3] );
+			}
+
+			return $rez;
+		}
+
+		/**
+		 * Arguments order and types : (int)site_id (string)post_type (string)size_name (int)parent_id
+		 */
+		function regenerate( $args, $assoc_args ) {
+			$config = self::prepare_args( $args );
+			if ( ! is_array( $config ) ) {
+				return;
+			}
+			extract( $config );
+			if ( ! empty( $post_type ) && ! empty( $size_name ) && ! empty( $all_sizes ) ) {
+				global $wpdb;
+				$execute_sizes = array();
+				if ( 'all' == $size_name ) {
+					$execute_sizes = $all_sizes;
+				} else {
+					if ( ! empty( $all_sizes[$size_name] ) ) {
+						$execute_sizes[$size_name] = $size_name;
+					}
+				}
+				$cond_join = $cond_where = '';
+				if ( ! empty( $post_type ) && '*' != $post_type ) {
+					$cond_join = " INNER JOIN " . $wpdb->posts . " as parent ON( parent.ID = p.post_parent )";
+					$cond_where = $wpdb->prepare( " AND parent.post_type = %s ", $post_type );
+					if ( ! empty( $parent_id ) ) {
+						$cond_where .= $wpdb->prepare( " AND parent.ID = %d ", $parent_id );
+						WP_CLI::line( '------- EXECUTE REGENERATE FOR IMAGES ASSOCIATED TO ' . $post_type . ' WITH ID = ' . $parent_id . ' -------' );
+					} else {
+						$cond_where .= " AND parent.ID IS NOT NULL ";
+						WP_CLI::line( '------- EXECUTE REGENERATE FOR ALL IMAGES ASSOCIATED TO ' . $post_type . ' -------' );
+					}
+				}
+				$tmpQuery = $wpdb->prepare( " SELECT p.ID FROM " . $wpdb->posts . " as p " . $cond_join . " WHERE p.post_mime_type like %s " . $cond_where . " ORDER BY p.ID ASC ", 'image/%' );
+				$rows = $wpdb->get_results( $tmpQuery, ARRAY_A );
+				if ( ! empty( $rows ) && is_array( $rows ) ) {
+					if ( ! empty( $execute_sizes ) ) {
+						foreach ( $execute_sizes as $sn => $sv ) {
+							WP_CLI::line( '-------------- REGENERATE ' . $sn . ' --------------' );
+							foreach ( $rows as $v ) {
+								$filename = get_attached_file( $v['ID'] );
+								if ( ! empty( $filename ) && file_exists( $filename ) ) {
+									SIRSC_Image_Regenerate_Select_Crop::make_images_if_not_exists( $v['ID'], $sn );
+									$image = wp_get_attachment_metadata( $v['ID'] );
+									$th = wp_get_attachment_image_src( $v['ID'], $sn );
+									if ( ! empty( $th[0] ) ) {
+										WP_CLI::success( $th[0] );
+									} else {
+										WP_CLI::error( __( 'Could not generate, the original is too small.', 'sirsc' ) );
+									}
+								} else {
+									WP_CLI::error( __( 'Could not generate, the original file is missing ', 'sirsc' ) ) . $filename . ' !';
+								}
+							}
+						}
+					}
+				}
+				WP_CLI::success( 'DONE ALL !!!' );
+			} else {
+				WP_CLI::error( 'Unexpected ERROR' );
+			}
+		}
+
+		/**
+		 * Arguments order and types : (int)site_id (string)post_type (string)size_name (int)parent_id
+		 */
+		function cleanup( $args, $assoc_args ) {
+			$config = self::prepare_args( $args );
+			if ( ! is_array( $config ) ) {
+				return;
+			}
+			extract( $config );
+			if ( ! empty( $post_type ) && ! empty( $size_name ) && ! empty( $all_sizes ) ) {
+				global $wpdb;
+				$execute_sizes = array();
+				if ( 'all' == $size_name ) {
+					$execute_sizes = $all_sizes;
+				} else {
+					if ( ! empty( $all_sizes[$size_name] ) ) {
+						$execute_sizes[$size_name] = $size_name;
+					}
+				}
+				$cond_join = $cond_where = '';
+				if ( ! empty( $post_type ) && '*' != $post_type ) {
+					$cond_join = " INNER JOIN " . $wpdb->posts . " as parent ON( parent.ID = p.post_parent )";
+					$cond_where = $wpdb->prepare( " AND parent.post_type = %s ", $post_type );
+					if ( ! empty( $parent_id ) ) {
+						$cond_where .= $wpdb->prepare( " AND parent.ID = %d ", $parent_id );
+						WP_CLI::line( '------- EXECUTE REMOVE IMAGES ASSOCIATED TO ' . $post_type . ' WITH ID = ' . $parent_id . ' -------' );
+					} else {
+						$cond_where .= " AND parent.ID IS NOT NULL ";
+						WP_CLI::line( '------- EXECUTE REMOVE ALL IMAGES ASSOCIATED TO ' . $post_type . ' -------' );
+					}
+				}
+				$tmpQuery = $wpdb->prepare( " SELECT p.ID FROM " . $wpdb->posts . " as p " . $cond_join . " WHERE p.post_mime_type like %s " . $cond_where . " ORDER BY p.ID ASC ", 'image/%' );
+				$rows = $wpdb->get_results( $tmpQuery, ARRAY_A );
+				if ( ! empty( $rows ) && is_array( $rows ) ) {
+					if ( ! empty( $execute_sizes ) ) {
+						foreach ( $execute_sizes as $sn => $sv ) {
+							WP_CLI::line( '-------------- REMOVE ' . $sn . ' --------------' );
+							foreach ( $rows as $v ) {
+								$image_meta = wp_get_attachment_metadata( $v['ID'] );
+								if ( ! empty( $image_meta['sizes'][$sn] ) ) {
+									$filename = realpath( get_attached_file( $v['ID'] ) );
+									if ( ! empty( $filename ) ) {
+										$string = ( ! empty( $image_meta['sizes'][$sn]['file'] ) ) ? $image_meta['sizes'][$sn]['file'] : '';
+										$file = str_replace( basename( $filename ), $string, $filename );
+										$file = realpath( $file );
+										if ( ! empty( $file ) ) {
+											if ( file_exists( $file ) && $file != $filename ) {
+												/** Make sure not to delete the original file */
+												WP_CLI::success( $file . ' ' . __( 'was removed', 'sirsc' ) );
+												@unlink( $file );
+											} else {
+												WP_CLI::line( __( 'Could not remove', 'sirsc' ) . ' ' . $file . __( '. The image is missing or
+												it is the original file.', 'sirsc' ) );
+											}
+										}
+									}
+									unset( $image_meta['sizes'][$sn] );
+									wp_update_attachment_metadata( $v['ID'], $image_meta );
+								}
+							}
+						}
+					}
+				}
+				WP_CLI::success( 'DONE ALL !!!' );
+			} else {
+				WP_CLI::error( 'Unexpected ERROR' );
+			}
+		}
+	}
+
+	WP_CLI::add_command( 'sirsc', 'SIRSC_Image_Regenerate_Select_Crop_CLI_Command' );
+}
