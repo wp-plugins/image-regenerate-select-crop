@@ -74,3 +74,27 @@ This option allows you to regenerate all the image for the selected image size P
 
 == Default Crop ==
 This option allows you to set a default crop position for the images generated for particular image size. This default option will be used when you chose to regenerate an individual image or all of these and also when a new image is uploaded.
+
+== WP-CLI Usage ==
+The available methods are "regenerate" and "cleanup". The arguments for both metods are the site id (1 for single site instalation, or if you are using the plugin in multi-site environment then you should specify the site id), the post type (post, page, or one of your custom post types), image size name (thumbnail, medium, etc.). 
+
+However, if you do not know all the options you have you can simply start by running the command "sirsc regenerate 1" and for each argument that is not mentioned the plugin will present the list of available values.
+If you want to regenerate the images for only one post, then the 4th argument can be passed and this should be the post ID.
+
+So, for example, if I would want to regenerate just the thumbnails for a post with the ID = 7, my command would be 
+
+* sirsc regenerate 1 post thumbnail 7
+
+If I would want to regenerate just the medium images for a post with the id 7, my command would be 
+
+* sirsc regenerate 1 post medium 7
+
+You can regenerate all images sizes for all the pages like this:
+
+* sirsc regenerate 1 page all
+
+Or, you can regenerate all images sizes for the page with the ID = 3 type like this:
+
+* sirsc regenerate 1 page all 3
+
+The cleanup command works with the exactly parameters order and types as the regenerate one.
