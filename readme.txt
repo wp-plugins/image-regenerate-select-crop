@@ -46,6 +46,7 @@ This program is distributed in the hope that it will be useful, but WITHOUT ANY 
 
 == Version history ==
 2.0 - Add the default crop configuration and the wp-cli extension.
+
 1.0 - Development version.
 
 == Custom Actions ==
