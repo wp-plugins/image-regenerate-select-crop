@@ -3,7 +3,7 @@
 Plugin Name: Image Regenerate & Select Crop
 Description: Regenerate and crop images, details about all image sizes registered, status details for all the images, clean up and placeholders.
 Author: Iulia Cazan
-Version: 2.0.0
+Version: 3.0.0
 Author URI: https://profiles.wordpress.org/iulia-cazan
 Donate Link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=JJA37EHZXWUTJ
 License: GPL2
@@ -1087,6 +1087,13 @@ class SIRSC_Image_Regenerate_Select_Crop
 				$sizes = $alls;
 			} else {
 				if ( ! empty( $selected_size ) && ! empty( $alls[$selected_size] ) ) {
+					
+					/** Force original also for the already uploaded images */
+					if ( ! empty( self::$settings['force_original_to'] ) && $selected_size == self::$settings['force_original_to'] ) {
+						$size = $this->get_all_image_sizes( self::$settings['force_original_to'] );
+						$this->process_image_resize_brute( $id, $size['width'], $size['height'] );
+					}
+					
 					$sizes = array(
 						$selected_size => $alls[$selected_size],
 					);

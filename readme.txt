@@ -4,7 +4,7 @@ Author URI: https://profiles.wordpress.org/iulia-cazan
 Tags: media, image, image sizes, image crop, image regenerate, image sizes details, missing images, image placeholder, image debug, wp-cli, command line, default crop
 Requires at least: not tested
 Tested up to: wp 4.1
-Stable tag:  2.0
+Stable tag:  3.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 Donate Link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=JJA37EHZXWUTJ
@@ -36,6 +36,8 @@ admin_enqueue_scripts, init, add_meta_boxes, wp_ajax_, plugins_loaded, admin_men
 None
 
 == Changelog ==
+= 3.0 =
+* Add the forced original resize execution for already uploaded images when using the regenerate option (this will not just resize the images for the selected image size but will also alter the original images).
 = 2.0 =
 * Add the default crop configuration for each image size.
 * And the WP-CLI extension.
@@ -47,6 +49,8 @@ None
 This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
 
 == Version history ==
+3.0 - Forced original resize for already uploaded images when using the regenerate option.
+
 2.0 - Default crop configuration and WP-CLI extension.
 
 1.0 - Development version.
