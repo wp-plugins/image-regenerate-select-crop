@@ -200,7 +200,7 @@ class SIRSC_Image_Regenerate_Select_Crop
 	/**
 	 * SIRSC_Image_Regenerate_Select_Crop::filter_ignore_global_image_sizes() Exclude globally the image sizes selected in the settings from being generated on upload
 	 */
-	function filter_ignore_global_image_sizes( $sizes ) {
+	public static function filter_ignore_global_image_sizes( $sizes ) {
 		if ( ! empty( self::$settings['complete_global_ignore'] ) ) {
 			foreach ( self::$settings['complete_global_ignore'] as $s ) {
 				unset( $sizes[$s] );
@@ -1761,7 +1761,8 @@ class SIRSC_Image_Regenerate_Select_Crop
 	}
 }
 
-SIRSC_Image_Regenerate_Select_Crop::get_instance();
+$SIRSC_Image_Regenerate_Select_Crop = SIRSC_Image_Regenerate_Select_Crop::get_instance();
+add_action( 'wp_loaded', $SIRSC_Image_Regenerate_Select_Crop->filter_ignore_global_image_sizes );
 
 
 if ( defined( 'WP_CLI' ) && WP_CLI ) {

@@ -3,7 +3,7 @@ Contributors: Iulia Cazan
 Author URI: https://profiles.wordpress.org/iulia-cazan
 Tags: media, image, image sizes, image crop, image regenerate, image sizes details, missing images, image placeholder, image debug, wp-cli, command line, default crop
 Requires at least: not tested
-Tested up to: wp 4.1.2
+Tested up to: wp 4.2
 Stable tag:  3.0
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
