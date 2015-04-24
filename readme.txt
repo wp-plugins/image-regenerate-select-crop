@@ -36,6 +36,8 @@ admin_enqueue_scripts, init, add_meta_boxes, wp_ajax_, plugins_loaded, admin_men
 None
 
 == Changelog ==
+= 3.1 =
+* Add * in front of options that have settings applied. 
 = 3.0 =
 * Add the forced original resize execution for already uploaded images when using the regenerate option (this will not just resize the images for the selected image size but will also alter the original images).
 = 2.0 =
