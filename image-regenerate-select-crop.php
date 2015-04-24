@@ -3,7 +3,7 @@
 Plugin Name: Image Regenerate & Select Crop
 Description: Regenerate and crop images, details about all image sizes registered, status details for all the images, clean up and placeholders.
 Author: Iulia Cazan
-Version: 3.0.0
+Version: 3.1.0
 Author URI: https://profiles.wordpress.org/iulia-cazan
 Donate Link: https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=JJA37EHZXWUTJ
 License: GPL2
@@ -381,6 +381,7 @@ class SIRSC_Image_Regenerate_Select_Crop
 		$post_types = $this->get_all_post_types_plugin();
 		$_sirsc_post_types = ( ! empty( $_GET['_sirsc_post_types'] ) ) ? $_GET['_sirsc_post_types'] : '';
 		$settings = maybe_unserialize( get_option( 'sirsc_settings' ) );
+		$default_plugin_settings = $settings; 
 		if ( ! empty( $_sirsc_post_types ) ) {
 			$settings = maybe_unserialize( get_option( 'sirsc_settings_' . $_sirsc_post_types ) );
 		}
@@ -465,18 +466,21 @@ class SIRSC_Image_Regenerate_Select_Crop
 		<hr/>
 		<h2><?php _e( 'Exclude Image Sizes', 'sirsc' ); ?></h2>
 
-		<p><?php _e( 'The selected image sizes will be excluded from the generation of the new images. By default, all image sizes defined in the system will be allowed. You can setup a global configuration, or individual configuration for all images attached to a particular post type. If no particular settings are made for a post type, then the default general settings will be used.', 'sirsc' ); ?></p>
+		<p><?php _e( 'The selected image sizes will be excluded from the generation of the new images. By default, all image sizes defined in the system will be allowed. You can setup a global configuration, or individual configuration for all images attached to a particular post type. If no particular settings are made for a post type, then the default general settings will be used (* means you added your settings for that option).', 'sirsc' ); ?></p>
 
 		<?php
 		if ( ! empty( $post_types ) ) {
 			$ptypes = array();
+			$has_settings = ( ! empty( $default_plugin_settings ) ) ? '* ' : '';
 			echo '<select name="_sirsc_post_types" id="_sirsc_post_type" onchange="sirsc_load_post_type(this, \'' . admin_url( 'options-general.php?page=image-regenerate-select-crop-settings' ) . '\')">
-					<option value="">' . __( 'General settings (used as default for all images)', 'sirsc' ) . '</option>';
+					<option value="">' . $has_settings . __( 'General settings (used as default for all images)', 'sirsc' ) . '</option>';
 			foreach ( $post_types as $pt => $obj ) {
 				array_push( $ptypes, $pt );
 				$is_selected = ( $_sirsc_post_types == $pt ) ? 1 : 0;
 				$extra = ( ! empty( $obj->_builtin ) ) ? '' : ' (custom post type)';
-				echo '<option value="' . esc_attr( $pt ) . '" ' . selected( 1, $is_selected, true ) . '>' . __( 'Settings for images attached to a ', 'sirsc' ) . ' ' . esc_html( $pt . $extra ) . '</option>';
+				$ptS = maybe_unserialize( get_option( 'sirsc_settings_' . $pt ) );
+				$has_settings = ( ! empty( $ptS ) ) ? '* ' : '';
+				echo '<option value="' . esc_attr( $pt ) . '" ' . selected( 1, $is_selected, true ) . '>' . $has_settings . __( 'Settings for images attached to a ', 'sirsc' ) . ' ' . esc_html( $pt . $extra ) . '</option>';
 			}
 			echo '</select><hr />';
 			update_option( 'sirsc_types_options', $ptypes );
